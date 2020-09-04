@@ -1,0 +1,232 @@
+---
+title: "Kaggle - Heart Failure"
+output: html_document
+---
+
+```{r}
+# Import libraries
+
+# install.packages("e1071")
+
+library("e1071") # SVM
+library(tidyverse) # select on data.frame
+require(tree) # classification tree
+library(randomForest) # random forest
+library(class) # KNN
+```
+
+```{r}
+# Print a summary of the data set to be used
+path_file <- file.path("heart_failure_clinical_records_dataset.csv")
+raw_data_set <- read.csv(path_file, stringsAsFactors = FALSE)
+summary(raw_data_set)
+```
+
+```{r}
+# Show all the variables and types
+raw_data_set$anaemia <- as.numeric(raw_data_set$anaemia)
+raw_data_set$creatinine_phosphokinase <- as.numeric(raw_data_set$creatinine_phosphokinase)
+raw_data_set$diabetes <- as.numeric(raw_data_set$diabetes)
+raw_data_set$ejection_fraction <- as.numeric(raw_data_set$ejection_fraction)
+raw_data_set$high_blood_pressure <- as.numeric(raw_data_set$high_blood_pressure)
+raw_data_set$serum_sodium <- as.numeric(raw_data_set$serum_sodium)
+raw_data_set$sex <- as.numeric(raw_data_set$sex)
+raw_data_set$smoking <- as.numeric(raw_data_set$smoking)
+raw_data_set$time <- as.numeric(raw_data_set$time)
+str(raw_data_set)
+
+```
+
+```{r}
+# Show all the variable names
+names(raw_data_set)
+```
+
+```{r}
+# Show histogram
+hist(raw_data_set$age)
+hist(raw_data_set$anaemia)
+hist(raw_data_set$creatinine_phosphokinase)
+hist(raw_data_set$diabetes)
+hist(raw_data_set$ejection_fraction)
+hist(raw_data_set$high_blood_pressure)
+hist(raw_data_set$platelets)
+hist(raw_data_set$serum_creatinine)
+hist(raw_data_set$serum_sodium)
+hist(raw_data_set$sex)
+hist(raw_data_set$smoking)
+hist(raw_data_set$time)
+hist(raw_data_set$DEATH_EVENT)
+```
+```{r}
+# TODO: Analyze all the data, and only use useful information
+
+# Convert DEAT_EVENT column into factor: "Yes" or "No"
+death = ifelse(raw_data_set$DEATH_EVENT==0, "N", "Y")
+data_set = data.frame(raw_data_set, death)
+data_set$death = as.factor(data_set$death)
+
+# Select only the valuable columns
+data_set <- data_set %>% select(
+  # age,
+  # anaemia,
+  # creatinine_phosphokinase,
+  # diabetes,
+  # ejection_fraction,
+  # high_blood_pressure,
+  # platelets,
+  # serum_creatinine,
+  # sex,
+  # smoking,
+  # time,
+  # death
+  time, ejection_fraction, serum_creatinine, age, death
+)
+
+# Print the new data set
+str(data_set)
+```
+
+```{r}
+# Split between train and test and declare algorithm variables
+ind <- sample(2, nrow(data_set), replace=TRUE, prob=c(0.8, 0.2))
+train_data_set <- data_set[ind==1,]
+test_data_set <- data_set[ind==2,]
+
+train_data_set_without_label <- train_data_set %>% select(
+  # age,
+  # anaemia,
+  # creatinine_phosphokinase,
+  # diabetes,
+  # ejection_fraction,
+  # high_blood_pressure,
+  # platelets,
+  # serum_creatinine,
+  # sex,
+  # smoking,
+  # time,
+  # death
+  time, ejection_fraction, serum_creatinine, age
+)
+train_data_set_label <- train_data_set %>% select(death)
+train_data_set_label_vector <- train_data_set_label[,1]
+
+test_data_set_without_label <- test_data_set %>% select(
+  # age,
+  # anaemia,
+  # creatinine_phosphokinase,
+  # diabetes,
+  # ejection_fraction,
+  # high_blood_pressure,
+  # platelets,
+  # serum_creatinine,
+  # sex,
+  # smoking,
+  # time,
+  # death
+  time, ejection_fraction, serum_creatinine, age
+)
+
+test_data_set_label <- test_data_set %>% select(death)
+expected_prediction <- test_data_set_label$death
+formula_to_optimize <- death~.
+
+```
+
+```{r}
+# Algorithm - SVM
+
+# Train the model
+svm.model <- svm(formula_to_optimize, data=train_data_set, kernel="radial")
+
+# Prediction
+svm.prediction <- predict(svm.model, newdata=test_data_set_without_label)
+
+# Confusion matrix
+svm.confusion_matrix <- table(expected_prediction, svm.prediction)
+
+# Check the algorithm accuracy
+cat(" --- SVM (accuracy) ---\n")
+accuracy <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+accuracy(svm.confusion_matrix)
+```
+
+```{r}
+# Algorithm - Classification tree
+tree.model <- tree(
+  formula_to_optimize,
+  data = train_data_set
+)
+
+# Prediction
+tree.prediction <- predict(tree.model, test_data_set_without_label, type="class")
+
+# Confusion matrix
+tree.confusion_matrix <- table(expected_prediction, tree.prediction)
+
+# Check the algorithm accuracy
+cat(" --- Classification Tree (accuracy) ---\n")
+accuracy <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+accuracy(tree.confusion_matrix)
+
+```
+
+```{r}
+# Algorithm - Random forest
+rforest.model <- randomForest(
+  formula_to_optimize,
+  data = train_data_set,
+  ntree = 500,
+  keep.forest = TRUE
+)
+
+# Prediction
+rforest.prediction <- predict(rforest.model, test_data_set_without_label)
+
+# Confusion matrix
+rforest.confusion_matrix <- table(expected_prediction, rforest.prediction)
+
+# Check the algorithm accuracy
+cat(" --- Classification Tree (accuracy) ---\n")
+accuracy <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+accuracy(rforest.confusion_matrix)
+
+```
+
+
+```{r}
+cat("--- train_data_set\n")
+class(train_data_set)
+nrow(train_data_set)
+
+cat("--- test_data_set\n")
+class(test_data_set)
+nrow(test_data_set)
+
+cat("--- train_data_set_label_vector\n")
+class(train_data_set_label_vector)
+nrow(train_data_set_label_vector)
+train_data_set_label_vector
+
+
+```
+
+```{r}
+# Algorithm - KNN and Prediction
+knn.prediction <- knn(
+  train = train_data_set_without_label,
+  test = test_data_set_without_label,
+  cl = train_data_set_label_vector,
+  k = 12
+)
+
+
+# Confusion matrix
+knn.confusion_matrix <- table(expected_prediction, knn.prediction)
+
+# Check the algorithm accuracy
+cat(" --- Classification Tree (accuracy) ---\n")
+accuracy <- function(x){sum(diag(x)/(sum(rowSums(x)))) * 100}
+accuracy(knn.confusion_matrix)
+
+```
